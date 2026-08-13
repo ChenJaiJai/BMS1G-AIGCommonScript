@@ -1,0 +1,112 @@
+// YYEVA 透明 MP4 — RGB / Alpha 分離合成（Cocos Creator 3.8）
+// 原理：https://github.com/yylive/YYEVA/blob/main/%E9%80%8F%E6%98%8EMP4%E7%A4%BC%E7%89%A9.md
+// 貼圖左半存 RGB、右半存 Alpha（取 R 通道 / 255）。
+//
+// 使用方式：
+// 1. SpriteFrame.rect 裁切為左半 RGB 區（寬 = videoWidth / 2）。
+// 2. 材質指定本 effect；Sprite.customMaterial 綁定後播放影片貼圖。
+// 3. 若 Metadata 有 rgbFrame / alphaFrame，將像素座標除以貼圖總尺寸後寫入 uniform。
+//
+// u_rgbFrame / u_alphaFrame：歸一化 [x, y, w, h]，預設左右各半。
+CCEffect %{
+  techniques:
+  - name: transparent
+    passes:
+    - vert: yyeva-vs:vert
+      frag: yyeva-fs:frag
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      properties:
+        alphaThreshold: { value: 0.5 }
+        u_rgbFrame: { value: [0.0, 0.0, 0.5, 1.0], editor: { displayName: RGB 區域 (xywh 0~1) } }
+        u_alphaFrame: { value: [0.5, 0.0, 0.5, 1.0], editor: { displayName: Alpha 區域 (xywh 0~1) } }
+}%
+
+CCProgram yyeva-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #if USE_LOCAL
+    #include <builtin/uniforms/cc-local>
+  #endif
+  #if SAMPLE_FROM_RT
+    #include <common/common-define>
+  #endif
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec4 color;
+  out vec2 uv0;
+
+  vec4 vert () {
+    vec4 pos = vec4(a_position, 1.0);
+
+    #if USE_LOCAL
+      pos = cc_matWorld * pos;
+    #endif
+
+    #if USE_PIXEL_ALIGNMENT
+      pos = cc_matView * pos;
+      pos.xyz = floor(pos.xyz);
+      pos = cc_matProj * pos;
+    #else
+      pos = cc_matViewProj * pos;
+    #endif
+
+    uv0 = a_texCoord;
+    #if SAMPLE_FROM_RT
+      CC_HANDLE_RT_SAMPLE_FLIP(uv0);
+    #endif
+    color = a_color;
+
+    return pos;
+  }
+}%
+
+CCProgram yyeva-fs %{
+  precision highp float;
+  #include <builtin/internal/alpha-test>
+
+  in vec4 color;
+
+  uniform Constant {
+    vec4 u_rgbFrame;
+    vec4 u_alphaFrame;
+  };
+
+  #if USE_TEXTURE
+    in vec2 uv0;
+    #pragma builtin(local)
+    layout(set = 2, binding = 11) uniform sampler2D cc_spriteTexture;
+  #endif
+
+  vec4 frag () {
+    vec4 o = vec4(1.0);
+
+    #if USE_TEXTURE
+      // display UV (0~1) → 貼圖空間 UV
+      vec2 rgbUV = u_rgbFrame.xy + uv0 * u_rgbFrame.zw;
+      vec2 alphaUV = u_alphaFrame.xy + uv0 * u_alphaFrame.zw;
+
+      vec3 rgb = texture(cc_spriteTexture, rgbUV).rgb;
+      float alpha = texture(cc_spriteTexture, alphaUV).r;
+
+      o = vec4(rgb, alpha);
+    #endif
+
+    o *= color;
+    ALPHA_TEST(o);
+    return o;
+  }
+}%

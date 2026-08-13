@@ -1,0 +1,149 @@
+// WebM / Sprite 邊緣去 halo（淺色描邊）— Cocos Creator 3.8
+// 關鍵：貼圖在此走 straight alpha（blend = src_alpha / 1-src_alpha），
+// 不做 RGB/alpha 拆預乘（之前的版本誤做除法把 halo 放大）。
+// 流程：min-alpha 侵蝕 → smoothstep 重映射 → 邊緣 RGB 從 alpha 最高鄰居拉回。
+// u_edge_fx：
+//   x = 取樣半徑倍率   (0.6~2.0)
+//   y = alpha 切斷閾值 (0.20~0.60，越大切越多)
+//   z = alpha 過渡軟度 (0.02~0.20，越小越銳)
+//   w = 顏色拉回強度   (0~1)
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: sprite-vs:vert
+      frag: sprite-fs:frag
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      properties:
+        alphaThreshold: { value: 0.5 }
+        # xy：與 uv0 同空間的滑鼠位置（0~1）；z：時間（原 shader 未用，可給動畫預留）
+        u_mouse_time: { value: [0.5, 0.5, 0.0, 0.0] }
+        # xy：畫面/貼圖解析度（像素）；zw 未使用
+        u_resolution: { value: [1920.0, 1080.0, 0.0, 0.0] }
+        u_edge_fx: { value: [0.40, 0.35, 0.12, 0.75] }
+}%
+
+CCProgram sprite-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #if USE_LOCAL
+    #include <builtin/uniforms/cc-local>
+  #endif
+  #if SAMPLE_FROM_RT
+    #include <common/common-define>
+  #endif
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec4 color;
+  out vec2 uv0;
+
+  vec4 vert () {
+    vec4 pos = vec4(a_position, 1);
+
+    #if USE_LOCAL
+      pos = cc_matWorld * pos;
+    #endif
+
+    #if USE_PIXEL_ALIGNMENT
+      pos = cc_matView * pos;
+      pos.xyz = floor(pos.xyz);
+      pos = cc_matProj * pos;
+    #else
+      pos = cc_matViewProj * pos;
+    #endif
+
+    uv0 = a_texCoord;
+    #if SAMPLE_FROM_RT
+      CC_HANDLE_RT_SAMPLE_FLIP(uv0);
+    #endif
+    color = a_color;
+
+    return pos;
+  }
+}%
+
+CCProgram sprite-fs %{
+  precision highp float;
+  #include <builtin/internal/embedded-alpha>
+  #include <builtin/internal/alpha-test>
+
+  in vec4 color;
+
+  uniform Constant{
+    vec4 u_mouse_time;
+    vec4 u_resolution;
+    vec4 u_edge_fx;
+  };
+
+  #if USE_TEXTURE
+    in vec2 uv0;
+    #pragma builtin(local)
+    layout(set = 2, binding = 11) uniform sampler2D cc_spriteTexture;
+
+    vec4 sampleSprite (vec2 uv) {
+      return CCSampleWithAlphaSeparated(cc_spriteTexture, uv);
+    }
+  #endif
+
+  vec4 frag () {
+    vec4 o = vec4(1.0);
+
+    #if USE_TEXTURE
+      vec2 uv = uv0;
+      float radiusScale = max(u_edge_fx.x, 0.2);
+      float aThreshold  = clamp(u_edge_fx.y, 0.05, 0.95);
+      float aSoftness   = max(u_edge_fx.z, 0.005);
+      float decontamAmt = clamp(u_edge_fx.w, 0.0, 1.0);
+
+      float baseR = 0.0032 * radiusScale;
+
+      vec4 c = sampleSprite(uv);
+
+      const float TWO_PI = 6.28318530718;
+      const int N12 = 12;
+
+      // 同一個取樣迴圈裡找 min alpha 與 alpha 最大的鄰居
+      float minA = c.a;
+      vec4 bestInner = c;
+      for (int i = 0; i < N12; i++) {
+        float ang = float(i) * TWO_PI / float(N12);
+        vec2 off = vec2(cos(ang), sin(ang)) * baseR;
+        vec4 s = sampleSprite(uv + off);
+        minA = min(minA, s.a);
+        if (s.a > bestInner.a) {
+          bestInner = s;
+        }
+      }
+
+      // 1) 侵蝕 alpha：邊緣帶會被 min 拉低
+      float aEroded = mix(c.a, minA, 0.75);
+
+      // 2) 重映射，使低於閾值的 halo 區歸 0
+      float aOut = smoothstep(aThreshold - aSoftness, aThreshold + aSoftness, aEroded);
+
+      // 3) 邊緣 RGB 拉回（straight alpha，直接用 RGB 不做除法）
+      float edgeMask = 1.0 - smoothstep(0.65, 0.95, c.a);
+      vec3 rgbOut = mix(c.rgb, bestInner.rgb, decontamAmt * edgeMask);
+
+      vec4 finalColor = vec4(rgbOut, aOut);
+
+      o = finalColor;
+    #endif
+
+    o *= color;
+    ALPHA_TEST(o);
+    return o;
+  }
+}%
