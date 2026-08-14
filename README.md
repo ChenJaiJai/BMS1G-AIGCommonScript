@@ -51,7 +51,7 @@ git clone --recurse-submodules <新專案.git>
 git submodule update --init --recursive
 ```
 
-本 README 寫作時 BBA 指向 `24988eb`（2026-08-14）。之後請以你實際驗證過的 SHA 為準。
+本 README 寫作時 BBA 指向 `c62a4d1`（2026-08-14）。之後請以你實際驗證過的 SHA 為準。
 
 不要用「在 `assets/` 裡 `git clone`」當正式做法：那樣**不會**產生 `.gitmodules`，別人 clone 遊戲 repo 也帶不走本庫。
 
