@@ -1,19 +1,13 @@
 /**
- * 啟動閘門：各模組載入完成後 complete，連線層 waitAll 後才處理桌況。
+ * 啟動閘門：reset 列出必等任務，各模組 complete，再 waitAll。
  *
- * 用法：
- * 1. 連線成功後 InitGate.reset(['Background', 'Table', 'Video', 'Poker'])
- * 2. 各模組完成後 InitGate.complete(id)
- * 3. await InitGate.waitAll()
+ * InitTask 只放各座台都會等的項。遊戲自己的任務在遊戲專案定義，reset 時一起傳進來。
  */
 export const InitTask = {
     Background: 'Background',
     Table: 'Table',
     Video: 'Video',
-    Poker: 'Poker',
 } as const;
-
-export type InitTaskId = (typeof InitTask)[keyof typeof InitTask] | string;
 
 type TaskEntry = {
     done: boolean;
@@ -39,37 +33,15 @@ export default class InitGate {
         }
     }
 
-    static addRequired(id: string): void {
-        if (!this.required.includes(id)) {
-            this.required.push(id);
-        }
-        this.ensure(id);
-    }
-
     static complete(id: string): void {
         const entry = this.ensure(id);
         if (entry.done) return;
         entry.done = true;
         entry.resolve();
-        console.warn(`[InitGate] complete: ${id}`);
     }
 
-    static wait(id: string): Promise<void> {
-        return this.ensure(id).promise;
-    }
-
-    static waitAll(ids?: string[]): Promise<void> {
-        const list = ids ?? this.required;
-        return Promise.all(list.map((id) => this.wait(id))).then(() => undefined);
-    }
-
-    static isComplete(id: string): boolean {
-        return this.tasks.get(id)?.done === true;
-    }
-
-    static pending(ids?: string[]): string[] {
-        const list = ids ?? this.required;
-        return list.filter((id) => !this.isComplete(id));
+    static waitAll(): Promise<void> {
+        return Promise.all(this.required.map((id) => this.ensure(id).promise)).then(() => undefined);
     }
 
     private static ensure(id: string): TaskEntry {
