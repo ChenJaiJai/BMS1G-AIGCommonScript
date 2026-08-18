@@ -42,12 +42,21 @@ export class VideoComponent {
         this._hiddenNativeVideo = native;
     }
     reset() {
-        this.videoPlayer.currentTime = 0;
-        this.videoPlayer.clip = null;
-        if (this.videoPlayer.nativeVideo) {
-            this.videoPlayer.nativeVideo.removeAttribute('src');
-            this.videoPlayer.nativeVideo.load()
+        if (!this.videoPlayer) {
+            console.error('video 組件是空的，Mng 的 video 有放嗎?');
+            return;
         }
+        // close() 後 nativeVideo 會是 null；Cocos 仍會對它寫 currentTime 而 throw
+        const native = this.videoPlayer.nativeVideo as HTMLVideoElement | null;
+        if (native) {
+            this.videoPlayer.currentTime = 0;
+            this.videoPlayer.clip = null;
+            native.removeAttribute('src');
+            native.load();
+        } else {
+            this.videoPlayer.clip = null;
+        }
+        this._hiddenNativeVideo = null;
         this.isEnd = this.ready = this.canSync = this.videoPlayer.loop = false;
     }
 
