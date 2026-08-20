@@ -15,7 +15,6 @@ export class VideoComponent {
     init() {
         this.reset();
         this.videoPlayer.stayOnBottom = true;
-        this.videoPlayer.node.active = true;
         this.videoPlayer.node.on(VideoPlayer.EventType.ERROR, () => {
         }, this);
         this.videoPlayer.node.on(VideoPlayer.EventType.READY_TO_PLAY, () => {
@@ -26,6 +25,7 @@ export class VideoComponent {
         this.videoPlayer.node.on(VideoPlayer.EventType.COMPLETED, () => {
             this.ready = this.canSync = false;
             if (this.isEnd) {
+                this.close()
                 console.error('影片結尾?');
                 return;
             }
@@ -49,10 +49,12 @@ export class VideoComponent {
         // close() 後 nativeVideo 會是 null；Cocos 仍會對它寫 currentTime 而 throw
         const native = this.videoPlayer.nativeVideo as HTMLVideoElement | null;
         if (native) {
-            this.videoPlayer.currentTime = 0;
-            this.videoPlayer.clip = null;
+            native.pause();
+            native.querySelectorAll('source').forEach((s) => s.remove());
             native.removeAttribute('src');
+            native.src = '';
             native.load();
+            this.videoPlayer.clip = null;
         } else {
             this.videoPlayer.clip = null;
         }
