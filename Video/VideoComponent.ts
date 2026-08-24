@@ -30,7 +30,7 @@ export class VideoComponent {
                 return;
             }
             if (!this.videoPlayer.loop) {
-                EventMsg.emit(CoreEvents.PlayWebM);
+                EventMsg.emit(CoreEvents.PlayVideo);
             }
         }, this);
     }

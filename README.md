@@ -68,7 +68,7 @@ git submodule update --init --recursive
 assets/AIGCommon/
 ├── Core/           EventMsg、CoreEvents、InitGate、waitUntil
 ├── Resource/       BundleMng
-├── Video/          VideoComponent、WebmVideoTexture、WebmClipMap
+├── Video/          VideoComponent、VideoTexture、VideoClipMap
 ├── Audio/          MusicMng
 ├── Net/
 │   ├── RequestTool/
@@ -123,7 +123,7 @@ await InitGate.waitAll();
 | `ResetGame` | **建議** | 斷線重置播放與牌面 |
 | `Reconnect` | **建議** | 重連中清播放清單 |
 | `GameCurrentStatus` | 可選 | DEBUG 狀態字串 |
-| `PlayWebM` | 有荷官影片才接 | `VideoComponent` COMPLETED 會 emit；要有 Manager 播下一支 |
+| `PlayVideo` | 有荷官影片才接 | `VideoComponent` COMPLETED 會 emit；要有 Manager 播下一支 |
 | `VideoClipStarted` | 有 3D／除錯 Label 才接 | clip 開始播 |
 | `SyncTime` | 有 skeletal 對嘴才接 | 影片秒數 |
 
@@ -218,7 +218,7 @@ try {
 - 兩個 `VideoPlayer`（雙槽，避免切 clip 黑屏）
 - 一個 2D `Sprite` 當貼圖目標
 - 上述兩個 Material 拖到 Inspector
-- 必須有人 `EventMsg.on(CoreEvents.PlayWebM, ...)`，否則下一支不會播
+- 必須有人 `EventMsg.on(CoreEvents.PlayVideo, ...)`，否則下一支不會播
 
 ### 其它 API
 
@@ -270,7 +270,7 @@ BBA 這些舊路徑**已刪**；不要從 git 歷史抄回，一律用本庫：
 - 荷官 WebM／MP4
 - `GameConfig` 裡的 BBA URL、`gameTypeCode: 'BBA'`
 
-可以當寫法參考、再刪掉遊戲邏輯的：`SignalRMng`（登入＋InitGate）、`GameMng`（loadBG／loadTable）、有影片才看 `WEBMMng`。
+可以當寫法參考、再刪掉遊戲邏輯的：`SignalRMng`（登入＋InitGate）、`GameMng`（loadBG／loadTable）、有影片才看 `VideoMng`。
 
 ---
 
@@ -284,7 +284,7 @@ BBA 這些舊路徑**已刪**；不要從 git 歷史抄回，一律用本庫：
 - [ ] `await InitGate.waitAll()` 會結束
 - [ ] 斷線能 `LoadingOpen` + `ResetGame`
 - [ ] （可選）能 POST 登入並 `_signalR.init` 連上 Hub
-- [ ] （有影片）雙 VideoPlayer + 庫內預設 Material 已掛；`PlayWebM` 有人聽
+- [ ] （有影片）雙 VideoPlayer + 庫內預設 Material 已掛；`PlayVideo` 有人聽
 - [ ] （有 Bundle）Editor Bundle 名稱與 `BundleMng.load` 第一參數一致
 - [ ] 沒有把 BBA Domain／場景 Prefab／已刪舊路徑從 git 歷史抄進來
 

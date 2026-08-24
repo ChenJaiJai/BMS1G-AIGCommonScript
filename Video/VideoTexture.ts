@@ -12,7 +12,7 @@ import { Rect, SpriteFrame, Texture2D } from 'cc';
  *
  * GPU 生命週期：canvas / 播放貼圖 / hold 貼圖各只建一次，尺寸變更走 reset／canvas 縮放，禁止每幀 new。
  */
-export class WebmVideoTexture {
+export class VideoTexture {
     private _texture: Texture2D | null = null;
     private _spriteFrame: SpriteFrame | null = null;
     private _canvas: HTMLCanvasElement | null = null;
@@ -58,7 +58,7 @@ export class WebmVideoTexture {
             return false;
         }
 
-        // clearRect 防止 WebM alpha 帶來的上一幀殘影。
+        // clearRect 防止影片 alpha 帶來的上一幀殘影。
         this._ctx.clearRect(0, 0, this._w, this._h);
         this._ctx.drawImage(video, 0, 0, this._w, this._h);
         this._texture.uploadData(this._canvas, 0);
