@@ -2,7 +2,7 @@
 
 人工座台系列**框架庫**，不是可執行遊戲。掛到遊戲專案後，仍要自己寫登入、場景、Bundle 名稱、Material，以及 `InitGate.complete`。
 
-只 clone 本庫也能照這份建立新專案。BBA 遊戲細節（百家樂規則、荷官清單）不在這裡。
+只 clone 本庫也能照這份建立新專案。各遊戲的規則、荷官清單、桌台 id 欄位名不在這裡。
 
 | 項目 | 值 |
 |------|-----|
@@ -51,7 +51,7 @@ git clone --recurse-submodules <新專案.git>
 git submodule update --init --recursive
 ```
 
-本 README 寫作時 BBA 指向 `c62a4d1`（2026-08-14）。之後請以你實際驗證過的 SHA 為準。
+pin 以各遊戲 repo 實際 gitlink 為準。
 
 不要用「在 `assets/` 裡 `git clone`」當正式做法：那樣**不會**產生 `.gitmodules`，別人 clone 遊戲 repo 也帶不走本庫。
 
@@ -73,10 +73,12 @@ assets/AIGCommon/
 ├── Net/
 │   ├── RequestTool/
 │   └── SignalR/    Hub + MessagePack
-└── Shader/         webm-edge-smooth、yyeva-alpha-split（effect + 預設 Material）
+└── Shader/         yyeva-alpha-split（MP4 預設 Material）；另保留舊 webm-edge-smooth
 ```
 
-本庫**不含**：場景 Prefab（GameCanvas／VideoCanvas／EnvCam）、Loading UI、背景／桌布 Sprite、荷官影片、撲克 FBX／材質、遊戲 Domain。影片預設 Material 在 `Shader/`，與 effect 同目錄。
+本庫**不含**：場景 Prefab、Loading UI、背景／桌布 Sprite、荷官影片、撲克 FBX／材質、遊戲 Domain。影片預設 Material 在 `Shader/`，與 effect 同目錄。
+
+新接線請走 **MP4 + YYEVA**。庫內仍有舊 WebM effect，不要當新專案預設。
 
 ---
 
@@ -127,16 +129,18 @@ await InitGate.waitAll();
 | `VideoClipStarted` | 有 3D／除錯 Label 才接 | clip 開始播 |
 | `SyncTime` | 有 skeletal 對嘴才接 | 影片秒數 |
 
-遊戲專屬事件（開獎、補牌、換靴）放遊戲端 `GameState`，**不要**加進 `CoreEvents`。
+遊戲專屬事件放遊戲端 `GameState`，**不要**加進 `CoreEvents`。
 
 ---
 
 ## 5. 遊戲端最小骨架（複製後改 URL）
 
+登入用 **id**（後端實際欄位名由各遊戲契約決定，本庫不綁）。
+
 ```ts
 // Presentation/Config/GameConfig.ts
 export const GameConfig = {
-    deskId: '',
+    id: '',
     authUrl: 'https://你的登入API',
     messageRoomUrl: 'https://你的Hub',
     defaultBackground: '你的背景子路徑',
@@ -156,7 +160,7 @@ import { SpriteFrame } from 'cc';
 
 const login = await new Request()
     .setMethod(Method.POST)
-    .setBody(JSON.stringify({ DeskId: deskId }))
+    .setBody(JSON.stringify({ id }))
     .deletother()
     .fetchData(GameConfig.authUrl);
 
@@ -186,7 +190,7 @@ try {
 | 登入呼叫 `deletother()` | 這座登入 API 的現況。下一個座台同一支 API，沒有「改帶 Bearer」的問題 |
 | **DEV 用 MessagePack，BUILD 用 JSON** | 原因未釐清；實測若 BUILD 也走 MessagePack，**正式環境連不上 SignalR**。不要拿掉 `if (DEV)` |
 | 心跳 5 秒、只走 WebSocket、`skipNegotiation` | **後端指定這座**如此。超過 10 秒心跳可能被踢 |
-| Hub 事件名、登入 DTO | 遊戲端自己寫（例如 `OnDeskChangeEGame`） |
+| Hub 事件名、登入 DTO | 遊戲端自己寫 |
 
 ---
 
@@ -198,9 +202,11 @@ try {
 |----------|---------|------------|
 | `BackGround` | 背景 Sprite | 不要 `reset(Background)` |
 | `Table` | 桌布 | 同上 |
-| `WebM` / `MP4` | 荷官影片 | 不要 `reset(Video)` |
+| `MP4` | 荷官影片 | 不要 `reset(Video)` |
 | `Poker` | 牌面 | 不要把 Poker 加進 reset |
 | `Music` | 音效 | `MusicMng` 也會試 `resources/Music/` |
+
+荷官影片請用 Bundle **`MP4`**（YYEVA 左右分割）。新專案不要再接 WebM Bundle。
 
 ### Shader vs Material
 
@@ -208,8 +214,8 @@ try {
 
 | 在本庫 | 掛到 |
 |--------|------|
-| `Shader/Smooth/webm-edge-smooth.effect` + `material.mtl` | WebM 槽 |
-| `Shader/VideoMP4/yyeva-alpha-split.effect` + `yyeva-alpha-split.mtl` | MP4 槽 |
+| `Shader/VideoMP4/yyeva-alpha-split.effect` + `yyeva-alpha-split.mtl` | 荷官影片（MP4／YYEVA） |
+| `Shader/Smooth/webm-edge-smooth.effect` + `material.mtl` | 舊 WebM；新專案不要接 |
 
 也可自建 Material、effect 指到同一支。撲克／牆壁材質留遊戲端。
 
@@ -217,7 +223,7 @@ try {
 
 - 兩個 `VideoPlayer`（雙槽，避免切 clip 黑屏）
 - 一個 2D `Sprite` 當貼圖目標
-- 上述兩個 Material 拖到 Inspector
+- **YYEVA Material** 拖到 Inspector
 - 必須有人 `EventMsg.on(CoreEvents.PlayVideo, ...)`，否則下一支不會播
 
 ### 其它 API
@@ -232,22 +238,28 @@ await MusicMng.init();
 MusicMng.musicPlay('TableBGM');
 ```
 
+影片目錄載入範例：
+
+```ts
+await BundleMng.loadDir<Asset>('MP4', '荷官目錄名', Asset, 'fallback目錄名');
+```
+
 ---
 
 ## 7. 不要搬／不要做
 
-從舊座台（例如 BBA）抄程式時，**只抄遊戲端 Manager 當參考，不要整包複製**。
+從舊座台抄程式時，**只抄遊戲端 Manager 當參考，不要整包複製**。
 
 ### 不要放進本庫
 
 - 荷官影片、撲克貼圖、FBX
-- 場景 Prefab（GameCanvas／VideoCanvas／EnvCam）
+- 場景 Prefab
 - 遊戲專屬事件、登入 DTO、荷官 enum
 - 遊戲專屬 Init 任務（在遊戲端定義常數）
 
-### 不要從 BBA 遊戲 repo 搬進新專案
+### 不要從舊遊戲 repo 把已刪路徑抄回新專案
 
-BBA 這些舊路徑**已刪**；不要從 git 歷史抄回，一律用本庫：
+這些舊路徑已刪；一律用本庫：
 
 | 不要搬（已刪） | 改用本庫 |
 |--------|----------|
@@ -259,18 +271,9 @@ BBA 這些舊路徑**已刪**；不要從 git 歷史抄回，一律用本庫：
 | `assets/Script/Presentation/Webm/` | `Video/` |
 | `assets/Shader/` | `Shader/`（effect + 預設 `.mtl`） |
 
-這些是 **BBA 遊戲專屬**，別的座台不要搬：
+遊戲專屬（Domain、荷官 enum、Prefab、`GameConfig` URL／遊戲代碼）留在各遊戲 repo，不要搬進本庫，也不要連 Manager 一起整包複製。
 
-- `assets/Script/Domain/Baccarat/`
-- `assets/Script/App/UseCases/`（PlayRound／PlayList）
-- `DealerList`、荷官 enum、`ProcessState`／`Winner`
-- `UrlQuery`（`deskId`／`gameType`）、`GameState.LoadingLogo`
-- `Poker/`、撲克 FBX／貼圖、`Mat/Poker`
-- `Prefab/`（GameCanvas／VideoCanvas／EnvCam／DefaultPoker）
-- 荷官 WebM／MP4
-- `GameConfig` 裡的 BBA URL、`gameTypeCode: 'BBA'`
-
-可以當寫法參考、再刪掉遊戲邏輯的：`SignalRMng`（登入＋InitGate）、`GameMng`（loadBG／loadTable）、有影片才看 `VideoMng`。
+可以當寫法參考、再刪掉遊戲邏輯的：登入＋InitGate 的 Manager、`GameMng`（loadBG／loadTable）、有影片才看 `VideoMng`。
 
 ---
 
@@ -283,10 +286,10 @@ BBA 這些舊路徑**已刪**；不要從 git 歷史抄回，一律用本庫：
 - [ ] `InitGate.reset` 的每個 id 都有 complete（含失敗路徑）
 - [ ] `await InitGate.waitAll()` 會結束
 - [ ] 斷線能 `LoadingOpen` + `ResetGame`
-- [ ] （可選）能 POST 登入並 `_signalR.init` 連上 Hub
-- [ ] （有影片）雙 VideoPlayer + 庫內預設 Material 已掛；`PlayVideo` 有人聽
+- [ ] （可選）能 POST 登入（body 帶 **id**）並 `_signalR.init` 連上 Hub
+- [ ] （有影片）雙 VideoPlayer + YYEVA Material 已掛；`PlayVideo` 有人聽；Bundle 名 `MP4`
 - [ ] （有 Bundle）Editor Bundle 名稱與 `BundleMng.load` 第一參數一致
-- [ ] 沒有把 BBA Domain／場景 Prefab／已刪舊路徑從 git 歷史抄進來
+- [ ] 沒有把遊戲 Domain／場景 Prefab／已刪舊路徑從 git 歷史抄進來
 
 ---
 
@@ -294,7 +297,8 @@ BBA 這些舊路徑**已刪**；不要從 git 歷史抄回，一律用本庫：
 
 - `CoreEvents` 混了影片專用事件；沒荷官可以不訂閱，但 enum 仍在
 - 場景 Prefab 刻意不進本庫；影片預設 Material 已在 `Shader/`
+- 庫內仍留舊 WebM effect，僅相容；新接線走 MP4
 
 空專案由各遊戲自己搭。掛載用第 1 節的 `git submodule add`（會自動產生 `.gitmodules`）。
 
-有 BBA 遊戲 repo 時，對照文件：`MD/08-新專案接入AIGCommon.md`。
+遊戲 repo 若有 `MD/08-新專案接入AIGCommon.md`，可與本文對照；兩邊都應維持**遊戲無關**的接入契約。
