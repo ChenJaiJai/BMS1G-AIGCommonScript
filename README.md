@@ -135,12 +135,12 @@ await InitGate.waitAll();
 
 ## 5. 遊戲端最小骨架（複製後改 URL）
 
-登入用 **id**（後端實際欄位名由各遊戲契約決定，本庫不綁）。
+登入帶某種 **id**。JSON key **不是**固定叫 `id`：各遊戲契約可能是 `deskId`、`deskGroupId`，或之後才定的其他命名。本庫不綁欄位名。
 
 ```ts
 // Presentation/Config/GameConfig.ts
 export const GameConfig = {
-    id: '',
+    // 登入識別欄位名依遊戲契約（deskId、deskGroupId、或其他 id）
     authUrl: 'https://你的登入API',
     messageRoomUrl: 'https://你的Hub',
     defaultBackground: '你的背景子路徑',
@@ -160,7 +160,7 @@ import { SpriteFrame } from 'cc';
 
 const login = await new Request()
     .setMethod(Method.POST)
-    .setBody(JSON.stringify({ id }))
+    .setBody(JSON.stringify({ /* 依契約：deskId、deskGroupId、或其他 id */ }))
     .deletother()
     .fetchData(GameConfig.authUrl);
 
@@ -286,7 +286,7 @@ await BundleMng.loadDir<Asset>('MP4', '荷官目錄名', Asset, 'fallback目錄�
 - [ ] `InitGate.reset` 的每個 id 都有 complete（含失敗路徑）
 - [ ] `await InitGate.waitAll()` 會結束
 - [ ] 斷線能 `LoadingOpen` + `ResetGame`
-- [ ] （可選）能 POST 登入（body 帶 **id**）並 `_signalR.init` 連上 Hub
+- [ ] （可選）能 POST 登入（body 帶該遊戲契約的 id 欄位）並 `_signalR.init` 連上 Hub
 - [ ] （有影片）雙 VideoPlayer + YYEVA Material 已掛；`PlayVideo` 有人聽；Bundle 名 `MP4`
 - [ ] （有 Bundle）Editor Bundle 名稱與 `BundleMng.load` 第一參數一致
 - [ ] 沒有把遊戲 Domain／場景 Prefab／已刪舊路徑從 git 歷史抄進來
