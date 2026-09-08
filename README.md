@@ -67,7 +67,7 @@ pin 以各遊戲 repo 實際 gitlink 為準。
 ```
 assets/AIGCommon/
 ├── Core/           EventMsg、CoreEvents、InitGate、waitUntil
-├── Resource/       BundleMng
+├── Resource/       BundleMng、RemoteMng
 ├── Video/          VideoComponent、VideoTexture、VideoClipMap
 ├── Audio/          MusicMng
 ├── Net/

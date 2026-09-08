@@ -38,11 +38,13 @@ class RemoteMng {
     }
 
     /**
-     * mp4 URL → VideoClip，並把 `_nativeUrl` 換成同源 blob。
-     * loadRemote 對影片通常只掛 https，直接播會 tainted canvas。
+     * 影片 URL → VideoClip，並把 `_nativeUrl` 換成同源 blob。
+     * loadRemote 對影片通常只掛 https，直接播會 tainted canvas（WebM／MP4 都要進 canvas）。
+     * `ext` 依 URL 副檔名：`.webm` 或 `.mp4`。
      */
     async loadVideoClip(url: string, defaultUrl?: string): Promise<VideoClip> {
-        const clip = await this.load<VideoClip>(url, '.mp4', defaultUrl);
+        const ext = this.videoExt(url);
+        const clip = await this.load<VideoClip>(url, ext, defaultUrl);
         const src = clip.nativeUrl || url;
         if (src.startsWith('blob:')) return clip;
 
@@ -50,6 +52,14 @@ class RemoteMng {
         if (!res.ok) throw new Error(`fetch 影片失敗：${src} ${res.status}`);
         (clip as { _nativeUrl: string })._nativeUrl = URL.createObjectURL(await res.blob());
         return clip;
+    }
+
+    private videoExt(url: string): '.webm' | '.mp4' {
+        const path = url.split('?')[0].toLowerCase();
+        const dot = path.lastIndexOf('.');
+        const ext = dot >= 0 ? path.slice(dot) : '';
+        if (ext === '.webm' || ext === '.mp4') return ext;
+        throw new Error(`[RemoteMng] 不支援的影片副檔名：${url}`);
     }
 }
 
