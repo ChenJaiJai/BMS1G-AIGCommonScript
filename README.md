@@ -1,6 +1,6 @@
 # AIGCommon
 
-人工座台系列**框架庫**，不是可執行遊戲。掛到遊戲專案後，仍要自己寫登入、場景、Bundle 名稱、Material，以及 `InitGate.complete`。
+人工座台系列**框架庫**，不是可執行遊戲。掛到遊戲專案後，仍要自己寫登入、場景、Bundle 名稱、Material，以及 `InitGate.complete`／`fail`。
 
 只 clone 本庫也能照這份建立新專案。各遊戲的規則、荷官清單、桌台 id 欄位名不在這裡。
 
@@ -101,14 +101,15 @@ InitGate.reset([
     InitTask.Video,
     GameInitTask.Poker,
 ]);
-EventMsg.emit(CoreEvents.Init, loginData);
+EventMsg.emit(CoreEvents.Init, domain, loginData); // 參數由遊戲決定；(domain, login) 常見
 await InitGate.waitAll();
 ```
 
 - 沒撲克：不要把 `Poker` 放進 `reset`
 - 沒荷官影片：不要把 `InitTask.Video` 放進 `reset`
-- `reset` 列出的每個 id 都要有人 `complete`（**失敗路徑也要**），否則 `waitAll` 不會結束
-- `complete` 可重入，重複呼叫無害
+- 成功 → `complete(id)`（可重入）
+- 無法恢復的失敗（例如主＋預設都掛）→ `fail(reason?)`：無未完成任務則 return；有則全部 reject，`waitAll` 中斷
+- 不要只靠 EventMsg listener `throw` 期待閘門結束（emit 接不住 async reject）
 
 不要把遊戲專屬任務加進本庫的 `InitTask`。
 
@@ -173,11 +174,12 @@ InitGate.reset([InitTask.Background, InitTask.Table]); // 有影片再加 Video
 EventMsg.emit(CoreEvents.Init, login.Data);
 await InitGate.waitAll();
 
-// 聽 Init 的模組：載入後 complete；catch 也要 complete
+// 聽 Init 的模組：成功 complete；無法恢復則 InitGate.fail
 try {
     await BundleMng.load<SpriteFrame>('BackGround', path, SpriteFrame, GameConfig.defaultBackground);
-} finally {
     InitGate.complete(InitTask.Background);
+} catch (e) {
+    InitGate.fail(e);
 }
 ```
 
@@ -283,8 +285,8 @@ await BundleMng.loadDir<Asset>('MP4', '荷官目錄名', Asset, 'fallback目錄�
 
 - [ ] `assets/AIGCommon` 存在，`.meta` 沒被重產
 - [ ] `db://assets/AIGCommon/...` 可編譯
-- [ ] `InitGate.reset` 的每個 id 都有 complete（含失敗路徑）
-- [ ] `await InitGate.waitAll()` 會結束
+- [ ] 成功路徑有 `complete`；無法恢復的失敗有 `fail`（或勿列入 `reset`）
+- [ ] `await InitGate.waitAll()` 會結束（成功 resolve／失敗 reject）
 - [ ] 斷線能 `LoadingOpen` + `ResetGame`
 - [ ] （可選）能 POST 登入（body 帶該遊戲契約的 id 欄位）並 `_signalR.init` 連上 Hub
 - [ ] （有影片）雙 VideoPlayer + YYEVA Material 已掛；`PlayVideo` 有人聽；Bundle 名 `MP4`
