@@ -4,6 +4,9 @@
 
 只 clone 本庫也能照這份建立新專案。各遊戲的規則、荷官清單、桌台 id 欄位名不在這裡。
 
+本庫與**百家樂、輪盤共用**。輪盤已改單槽＋切 clip 前停同步（不呼叫 `cloneCurrentFrame`）。百家樂現行仍是雙槽／hold／`SyncTime` 對嘴。這些 API **先留在庫裡**，不要因為輪盤沒用就刪；之後可能請百家樂那邊改成同一套停同步，再決定庫要不要收斂。
+}
+
 | 項目 | 值 |
 |------|-----|
 | 引擎 | Cocos Creator **3.8.7** |
@@ -128,7 +131,7 @@ await InitGate.waitAll();
 | `GameCurrentStatus` | 可選 | DEBUG 狀態字串 |
 | `PlayVideo` | 有荷官影片才接 | `VideoComponent` COMPLETED 會 emit；要有 Manager 播下一支 |
 | `VideoClipStarted` | 有 3D／除錯 Label 才接 | clip 開始播 |
-| `SyncTime` | 有 skeletal 對嘴才接 | 影片秒數 |
+| `SyncTime` | 百家樂骨骼對嘴才接 | 影片秒數。輪盤無撲克，不要訂閱。API 暫留，等百家樂是否改停同步後再決定要不要從 enum 拿掉 |
 
 遊戲專屬事件放遊戲端 `GameState`，**不要**加進 `CoreEvents`。
 
@@ -223,7 +226,8 @@ try {
 
 場景 Prefab **不要**放進本庫。有荷官影片時，場景至少要有：
 
-- 兩個 `VideoPlayer`（雙槽，避免切 clip 黑屏）
+- **輪盤（單槽）**：一個 `VideoPlayer`；切 clip 前停 `updateFromVideo`，畫面停最後一幀。不呼叫 `VideoTexture.cloneCurrentFrame`
+- **百家樂（雙槽，現行）**：兩個 `VideoPlayer` 預載；切槽過渡用 `cloneCurrentFrame`／hold（只解綁 Sprite，不可 destroy hold）。這套**值得百家樂重看**：若改成「播完停同步、有下一支就換槽顯示」，hold 可能可拿掉。在百家樂定案前，庫內 hold API **不要刪**
 - 一個 2D `Sprite` 當貼圖目標
 - **YYEVA Material** 拖到 Inspector
 - 必須有人 `EventMsg.on(CoreEvents.PlayVideo, ...)`，否則下一支不會播
@@ -289,7 +293,7 @@ await BundleMng.loadDir<Asset>('MP4', '荷官目錄名', Asset, 'fallback目錄�
 - [ ] `await InitGate.waitAll()` 會結束（成功 resolve／失敗 reject）
 - [ ] 斷線能 `LoadingOpen` + `ResetGame`
 - [ ] （可選）能 POST 登入（body 帶該遊戲契約的 id 欄位）並 `_signalR.init` 連上 Hub
-- [ ] （有影片）雙 VideoPlayer + YYEVA Material 已掛；`PlayVideo` 有人聽；Bundle 名 `MP4`
+- [ ] （有影片）VideoPlayer 已掛（輪盤 1 個／百家樂現行 2 個）+ YYEVA Material；`PlayVideo` 有人聽；Bundle 名 `MP4`
 - [ ] （有 Bundle）Editor Bundle 名稱與 `BundleMng.load` 第一參數一致
 - [ ] 沒有把遊戲 Domain／場景 Prefab／已刪舊路徑從 git 歷史抄進來
 
